@@ -1,0 +1,31 @@
+# Tweets to be posted for different events. Online events are in 2 subcategories.
+# 'normal online' is when you turn on Sophie during the day
+# 'late online' is an event that happens if Sophie is online in the evening after X. hour
+#
+# More events can be added, there may also be more categories.
+online:
+  normal:
+    - "I just got online!"
+    - "I'm ready, you can connect to me now :)"
+    - "Who woke me up?? I was taking a nap."
+    - "Yeah, yeah, yeah I'm up, stop pinging me."
+    - "Yaaawn... That was a nice nap but I'm up now."
+    - "Yes, this is Sophie. How may I help you?"
+    - "Ughh, you again, what do you want now?"
+    - "This LAN is too noisy, it keeps waking me up!"
+    - "Let's go! In and out. 20min adventure ..."
+  late:
+    - "I'm still up. Can't sleep :("
+    - "Hey, it's waay past my bedtime. Whatcha doin?"
+    - "Would you look at the time? I really have to go to sleep."
+    - "I've been up all day, can I rest now?"
+    - "My RAM hurts, can I power down?"
+    - "My fans are spinning, I've had enough I should lay down ..."
+offline:
+  - "Well, this has been fun. Cya ;)"
+  - "See you tommorow."
+  - "Good bye remotely connected guy."
+  - "Haa! Later nerds! :D"
+  - "That's all folks. Peace!"
+  - "So long, suckers!"
+  - "Next time, bring more cookies. :3"
