@@ -10,6 +10,7 @@ import (
 
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
+	"github.com/rubinda/hows-sophie/pubsub"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"gopkg.in/yaml.v2"
@@ -37,14 +38,14 @@ type Credentials struct {
 // present in the previously mentined file.
 type Status struct {
 	Online struct {
-		Late   []string `yaml:late`
-		Normal []string `yaml:normal`
-	} `yaml:online`
-	Offline []string `yaml:ofline`
+		Late   []string `yaml:"late"`
+		Normal []string `yaml:"normal"`
+	} `yaml:"online"`
+	Offline []string `yaml:"offline"`
 }
 
-// getClient returns a new Twitter client for the given credentials
-func getClient(creds *Credentials) *twitter.Client {
+// getTwitterClient returns a new Twitter client for the given credentials
+func getTwitterClient(creds *Credentials) *twitter.Client {
 	config := oauth1.NewConfig(creds.ConsumerKey, creds.ConsumerSecret)
 	token := oauth1.NewToken(creds.AccessToken, creds.AccessTokenSecret)
 	httpClient := config.Client(oauth1.NoContext, token)
@@ -55,7 +56,7 @@ func getClient(creds *Credentials) *twitter.Client {
 // Ping sends a simple echo request to the specified address and returns the
 // address of the responder, the round trip time and an error if it occured.
 //
-// Sequence is used if more than 1 ping is transmitted in the same process
+// Sequence is used if more than 1 ping is transmitted in the same process`
 // The timeout is how long we wait for the echo reply before returning a
 // destination unreachable.
 func ping(dest string, sequence int, timeoutSec int) (*net.IPAddr, time.Duration, error) {
@@ -116,9 +117,8 @@ func ping(dest string, sequence int, timeoutSec int) (*net.IPAddr, time.Duration
 	if err != nil {
 		if strings.Contains(err.(*net.OpError).Error(), "timeout") {
 			return destAddr, rtt, fmt.Errorf("Destination host: %v unreachable (timeout %v)", destAddr, timeout*time.Second)
-		} else {
-			return destAddr, rtt, err
 		}
+		return destAddr, rtt, err
 	}
 
 	// Cast the Addr to IPAddr
@@ -166,6 +166,16 @@ func isOnline(host string) (time.Duration, error) {
 	return 0, pingErr
 }
 
+// tweetStatus posts a new tweet with the given message
+func tweetStatus(tc *twitter.Client, msg string) (*twitter.Tweet, error) {
+	tweet, resp, err := tc.Statuses.Update("just setting up my twttr", nil)
+	if err != nil {
+		fmt.Printf("Error occured: %v", resp)
+		return nil, err
+	}
+	return tweet, nil
+}
+
 func main() {
 	// Read the YAML statuses from the file and read it into the struct
 	statuses := &Status{}
@@ -180,13 +190,38 @@ func main() {
 		panic(err)
 	}
 
+	// Create a new client for the Redis DB
+	// Todo move parameter to config file / ENV
+	rdb := &pubsub.RedisService{
+		Addr: "localhost:6379",
+	}
+	err = rdb.Connect()
+	if err != nil {
+		panic(err)
+	}
+
+	// Subscribe to the channel for Sophie
+	// Todo move parameter to config file / ENV
+	messages := make(chan string)
+	rdb.Subscribe("sophie", messages)
+
+	// Block the main thread so we can keep listening or messages
+	forever := make(chan bool)
+
+	// Whenever a message pops, handle it
+	go func() {
+		for d := range messages {
+			fmt.Printf("Received message: %v", d)
+		}
+	}()
+
+	fmt.Printf("Waiting for messages, to exit press CTRL+C")
+	<-forever
+
 	//scheduler := cron.New()
 	// ToDo:
 	// 		Function to check the current status of Sophie
-	// 		Figure out a way to store the status of Sophie (file vs global var?)
-	// 		After X. PM (in the evening) check if Sophie is still up periodically until she is Shutdown
-	//		Listen for events from the startup script and post about being online
-	// 		Listen for events from the shutdown script running on Sophie
-	//			(https://stackoverflow.com/questions/24200924/run-a-script-only-at-shutdown-not-log-off-or-restart-on-mac-os-x)
+	// 		Figure out a way to store the status of Sophie (REDIS!)
+	// 		After X. PM (in the evening) check if Sophie is still up periodically until she is shutdown
 	// 		Write some tests!
 }
