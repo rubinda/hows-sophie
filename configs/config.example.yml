@@ -1,0 +1,21 @@
+# This is an example of the config file, as there are some secrets
+# inside which should not be commited.
+#
+# Usage:
+#   Rename the file to 'config.yml' (which is ignored by git) and
+#   fill in the missing parameters.
+
+# Paramteters for connecting to the redis instance
+# and the channel from the message broker to listen on
+redis:
+  address: "localhost"
+  port: 6379
+  channel: "sophie"
+
+# Parameters for the Twitter API
+# (!) should be kept secret, do not commit them
+twitter:
+  consumerKey: ""
+  consumerSecret: ""
+  accessToken: ""
+  accessTokenSecret: ""

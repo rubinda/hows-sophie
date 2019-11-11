@@ -1,5 +1,10 @@
-# The executable
-hows-sophie
+# Ignore files with no extension (executables)
+*
+!/**/
+!*.*
+
+# The config file with secrets
+configs/config.yml
 
 # Binaries for programs and plugins
 *.exe

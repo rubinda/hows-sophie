@@ -2,56 +2,17 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/dghubble/go-twitter/twitter"
-	"github.com/dghubble/oauth1"
+	sophie "github.com/rubinda/hows-sophie"
 	"github.com/rubinda/hows-sophie/pubsub"
+	"github.com/rubinda/hows-sophie/tweet"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
-	"gopkg.in/yaml.v2"
 )
-
-const (
-	// ProtocolICMP is the code for the ICMP packet
-	ProtocolICMP = 1
-	// ListenAddr is the default IPv4 address for listening
-	ListenAddr = "0.0.0.0"
-	// StatusFile holds the status messages
-	statusFile = "statuses.yml"
-)
-
-// Credentials holds the tokens to access the Twitter API
-type Credentials struct {
-	ConsumerKey       string
-	ConsumerSecret    string
-	AccessToken       string
-	AccessTokenSecret string
-}
-
-// Status describes the object present in the 'statusFile'
-// It holds the messages which are posted to Twitter and
-// present in the previously mentined file.
-type Status struct {
-	Online struct {
-		Late   []string `yaml:"late"`
-		Normal []string `yaml:"normal"`
-	} `yaml:"online"`
-	Offline []string `yaml:"offline"`
-}
-
-// getTwitterClient returns a new Twitter client for the given credentials
-func getTwitterClient(creds *Credentials) *twitter.Client {
-	config := oauth1.NewConfig(creds.ConsumerKey, creds.ConsumerSecret)
-	token := oauth1.NewToken(creds.AccessToken, creds.AccessTokenSecret)
-	httpClient := config.Client(oauth1.NoContext, token)
-
-	return twitter.NewClient(httpClient)
-}
 
 // Ping sends a simple echo request to the specified address and returns the
 // address of the responder, the round trip time and an error if it occured.
@@ -64,7 +25,7 @@ func ping(dest string, sequence int, timeoutSec int) (*net.IPAddr, time.Duration
 	timeout := time.Duration(timeoutSec)
 
 	// Listen for potential ICMP replies
-	conn, err := icmp.ListenPacket("ip4:icmp", ListenAddr)
+	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
 		return nil, 0, err
 	}
@@ -125,7 +86,7 @@ func ping(dest string, sequence int, timeoutSec int) (*net.IPAddr, time.Duration
 	replierAddr := replier.(*net.IPAddr)
 
 	// Parse the encoded message and check if it's a EchoReply
-	echoReply, err := icmp.ParseMessage(ProtocolICMP, echoReplyB[:n])
+	echoReply, err := icmp.ParseMessage(sophie.ProtocolICMP, echoReplyB[:n])
 	if err != nil {
 		return replierAddr, rtt, err
 	}
@@ -166,56 +127,27 @@ func isOnline(host string) (time.Duration, error) {
 	return 0, pingErr
 }
 
-// tweetStatus posts a new tweet with the given message
-func tweetStatus(tc *twitter.Client, msg string) (*twitter.Tweet, error) {
-	tweet, resp, err := tc.Statuses.Update("just setting up my twttr", nil)
-	if err != nil {
-		fmt.Printf("Error occured: %v", resp)
-		return nil, err
-	}
-	return tweet, nil
-}
-
 func main() {
-	// Read the YAML statuses from the file and read it into the struct
-	statuses := &Status{}
-	rawYaml, err := ioutil.ReadFile(statusFile)
-	if err != nil {
-		// Todo better error handling
-		panic(err)
-	}
-	err = yaml.Unmarshal(rawYaml, statuses)
-	if err != nil {
-		// Todo better error handling
-		panic(err)
-	}
-
 	// Create a new client for the Redis DB
 	// Todo move parameter to config file / ENV
 	rdb := &pubsub.RedisService{
 		Addr: "localhost:6379",
 	}
-	err = rdb.Connect()
+	err := rdb.Connect()
 	if err != nil {
 		panic(err)
 	}
 
+	ts := &tweet.TwitterService{}
+	//ts.SetTwitterClient(credentials)
+
 	// Subscribe to the channel for Sophie
 	// Todo move parameter to config file / ENV
-	messages := make(chan string)
-	rdb.Subscribe("sophie", messages)
+	rdb.Subscribe("sophie", ts)
+	fmt.Printf("Waiting for messages, to exit press CTRL+C \n")
 
 	// Block the main thread so we can keep listening or messages
 	forever := make(chan bool)
-
-	// Whenever a message pops, handle it
-	go func() {
-		for d := range messages {
-			fmt.Printf("Received message: %v", d)
-		}
-	}()
-
-	fmt.Printf("Waiting for messages, to exit press CTRL+C")
 	<-forever
 
 	//scheduler := cron.New()
